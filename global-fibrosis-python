@@ -1,0 +1,107 @@
+from PIL import Image 
+import numpy as np
+import os 
+import xlsxwriter
+
+# Path is whatever folder your images are stored in 
+path = "/Users/yourname/Desktop/Global Fibrosis Program/TEST IMAGE/"
+input_folder = os.listdir(path)
+
+"""
+# Uncomment this section to write an excel file - comment out while debugging 
+# THERE IS ANOTHER SECTION BELOW YOU HAVE TO ALSO UNCOMMENT 
+# Replace filename with what you want to name the excel file 
+
+workbook = xlsxwriter.Workbook('filename')
+worksheet = workbook.add_worksheet()
+xl_row = 0 
+"""
+
+for image in input_folder: 
+    # Only loads jpgs 
+    if image[-4:] != ".jpg": 
+        continue 
+    else:
+
+        # Display original image for comparison with output  
+        im = Image.open((path+image), mode='r')
+        rgb_im = im.convert('RGB')
+        rgb_im.show()
+        
+        # Line below makes program faster for troubleshooting by shrinking images 
+        #rgb_im = rgb_im.resize(((rgb_im.height/2), rgb_im.width/2), Image.ANTIALIAS) 
+
+        total_rows =  rgb_im.height
+        total_columns = rgb_im.width
+        total_pixels = total_rows * total_columns
+
+        pixels = rgb_im.load() 
+
+        # Counts up white and blue pixels 
+        white_pixel_counter = 0
+        blue_pixel_counter = 0 
+
+        # Iterate over all pixels in image - it's slow, hence option to resize above  
+        for row in range(0, total_columns):
+            for col in range(0, total_rows):
+                r, g, b = rgb_im.getpixel((row, col))
+                
+                # If pixel meets threshold for "background" make it black and add to counter
+                if r > 140 and g > 190 and b > 190:
+                    pixels[row, col] = (0, 0, 0) 
+                    white_pixel_counter += 1
+
+                # For cropped images where part of background may be black: 
+                if r == 0 and g == 0 and b == 0:
+                    pixels[row, col] = (255, 255, 255) 
+                    white_pixel_counter += 1
+                
+                
+                # If pixel meets threshold for "blue," make it yellow and add to counter
+                # blue threshold can be changed to suit images - 82 is default, I have gone up to 95
+                # Yellow is an arbitrary color can change rgb values below to something else if you want  
+                if r < 110 and b > 82:
+                    pixels[row, col] = (255, 255, 0)
+                    blue_pixel_counter += 1 
+                    
+        # Calculate % fibrosis 
+        heart_pixels = float(total_pixels) - float(white_pixel_counter)
+        percent_fibrosis = (float(blue_pixel_counter) / heart_pixels) * 100 
+        
+        # Show "changed" image so user can compare to original 
+        rgb_im.show() 
+
+        # You can have the value print out to terminal if you want or comment this out  
+        print percent_fibrosis 
+
+        # ask user if the image looks ok, if they say yes program writes % value and goes onto next image
+        # if the user says no, the program writes NO to the excel column so you know to go back and redo that one  
+        is_okay = (raw_input("OK? (y/n) ")).lower()
+        while is_okay != "y" and is_okay != "n":
+            is_okay = raw_input("Please enter y or n: " )
+
+
+        """
+        # UNCOMMENT THIS WHEN WRITING EXCEL FILE! Also one more below! 
+
+        worksheet.write(xl_row, 0, image)
+
+        if is_okay == "y":
+            worksheet.write(xl_row, 1, percent_fibrosis)
+        elif is_okay == "n":
+            worksheet.write(xl_row, 1, "NO")
+
+        xl_row +=1; 
+        """ 
+        
+
+        """The before-and-after images that pop do not close automatically so you
+        have to do it manually. Program bugs you to do it and won't go onto the next image
+        until you say you closed them."""
+
+        closed_windows = (raw_input("Did you close both image windows? (y/n) ")).lower()
+        while is_okay != "y" and is_okay != "n":
+            is_okay = raw_input("Please enter y or n: " )
+
+# Last thing to un-comment to write an excel file! 
+#workbook.close()
